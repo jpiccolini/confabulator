@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Confabulator</title>
+  <meta name="description" content="Favorites from friends, with the story behind each one.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="#" id="home">
+        <span class="brand-name" id="siteName">Confabulator</span>
+        <span class="brand-tag" id="siteTag"></span>
+      </a>
+      <nav class="acct" id="acct" aria-label="Account"></nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="banner"></div>
+
+    <section class="toolbar" aria-label="Filter favorites">
+      <label class="search" for="q">
+        <span class="sr">Search</span>
+        <input id="q" type="search" placeholder="Search titles, places, stories, people" autocomplete="off">
+      </label>
+      <div class="chips" id="chips"></div>
+      <div id="personFilter"></div>
+    </section>
+
+    <section class="grid" id="grid" aria-live="polite"></section>
+  </main>
+
+  <footer class="wrap foot">
+    <span id="count"></span>
+    <span>Built with Firebase, Cloudinary and Render.</span>
+  </footer>
+
+  <!-- Entry detail -->
+  <dialog id="detail" class="sheet"></dialog>
+
+  <!-- Add / edit form -->
+  <dialog id="editor" class="sheet">
+    <form id="entryForm" method="dialog" class="form">
+      <h2 id="editorTitle">Add a favorite</h2>
+      <label for="fTitle">What is it?
+        <input id="fTitle" required maxlength="120" placeholder="Efrain's on Main">
+      </label>
+      <label for="fCat">Category
+        <select id="fCat" required></select>
+      </label>
+      <label for="fPlace">Where, or by whom
+        <input id="fPlace" maxlength="120" placeholder="Lafayette, Colorado · or an author, band, maker">
+      </label>
+      <label for="fStory">Why you love it
+        <textarea id="fStory" maxlength="4000" rows="5" placeholder="The story you'd tell a friend over dinner."></textarea>
+      </label>
+      <label for="fLink">Link (website, map, YouTube, Spotify)
+        <input id="fLink" type="url" maxlength="500" placeholder="https://">
+      </label>
+      <div class="imgfield">
+        <label for="fImage">Photo link
+          <input id="fImage" type="url" maxlength="500" placeholder="https://">
+        </label>
+        <div id="uploadBox"></div>
+        <img id="fPreview" alt="" hidden>
+      </div>
+      <details class="suggest">
+        <summary>Don't see the right category?</summary>
+        <div class="suggest-row">
+          <input id="fNewCat" maxlength="40" placeholder="Suggest one, like Coffee shops">
+          <button type="button" class="btn" id="suggestBtn">Suggest</button>
+        </div>
+        <p class="hint" id="suggestMsg"></p>
+      </details>
+      <p class="err" id="formMsg" role="alert"></p>
+      <div class="actions">
+        <button type="submit" class="btn primary" id="saveBtn">Post it</button>
+        <button type="button" class="btn" id="cancelBtn">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Admin -->
+  <dialog id="admin" class="sheet"></dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
