@@ -17,7 +17,7 @@ const S = {
   user: null,          // Firebase user, or null
   isAdmin: false,
   isMember: false,
-  entries: [],         // [{id, title, categoryId, place, story, link, imageUrl, authorId, authorName, createdAt}]
+  entries: [],         // [{id, title, categoryId, place, story, link, links, imageUrl, authorId, authorName, createdAt}]
   categories: [],      // [{id, name}]
   pending: [],         // admin only: suggested categories
   members: [],         // admin only: [{id: email, note}]
@@ -42,7 +42,7 @@ function h(tag, attrs = {}, ...kids) {
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v);
   }
-  for (const kid of kids.flat()) {
+  for (const kid of kids.flat(Infinity)) {
     if (kid == null || kid === false) continue;
     el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   }
@@ -51,7 +51,12 @@ function h(tag, attrs = {}, ...kids) {
 
 const isHttp = (u) => typeof u === "string" && /^https?:\/\//i.test(u.trim());
 const slug = (s) => s.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
-const catName = (id) => S.categories.find((c) => c.id === id)?.name || "Other";
+// Name for a category id. Falls back to the starter list, so entries still read
+// "Music" before the admin has added the starter categories to the database.
+const catName = (id) =>
+  S.categories.find((c) => c.id === id)?.name ||
+  starterCategories.find((n) => slug(n) === id) ||
+  "Other";
 const toDate = (t) => (t?.toDate ? t.toDate() : t instanceof Date ? t : t ? new Date(t) : null);
 const fmtDate = (t) => { const d = toDate(t); return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "just now"; };
 
@@ -75,12 +80,34 @@ function youTubeThumb(link) {
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : "";
 }
 
+// All of an entry's links. Older entries have a single `link`; newer ones a `links` list.
+const MAX_LINKS = 6;
+function entryLinks(e) {
+  const list = Array.isArray(e?.links) && e.links.length ? e.links : (e?.link ? [e.link] : []);
+  return list.filter(isHttp);
+}
+
+// The story text with any web addresses turned into clickable links.
+function linkify(text) {
+  const parts = String(text).split(/(https?:\/\/[^\s<>"]+)/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return part;
+    const trail = part.match(/[.,;:!?)\]]+$/)?.[0] || "";
+    const url = trail ? part.slice(0, -trail.length) : part;
+    return [h("a", { href: url, target: "_blank", rel: "noopener" }, url), trail];
+  });
+}
+
 function linkLabel(link) {
   try {
     const host = new URL(link).hostname.replace(/^www\./, "");
     if (/youtube|youtu\.be/.test(host)) return "Watch on YouTube";
     if (/spotify/.test(host)) return "Listen on Spotify";
     if (/google\.[a-z.]+$/.test(host) || /maps\.app\.goo\.gl/.test(host)) return "Open map";
+    if (/wikipedia\.org$/.test(host)) return "Read on Wikipedia";
+    if (/music\.apple\.com$/.test(host)) return "Listen on Apple Music";
+    if (/bandcamp\.com$/.test(host)) return "Listen on Bandcamp";
+    if (/imdb\.com$/.test(host)) return "See on IMDb";
     return "Visit " + host;
   } catch { return "Open link"; }
 }
@@ -275,15 +302,20 @@ function filtered() {
   );
 }
 
+// Striped placeholder with the first letter, used when there's no photo or it won't load.
+function noPic(e) {
+  return h("div", { class: "nopic", "aria-hidden": "true" }, (e.title || "?").trim()[0].toUpperCase());
+}
+
 function card(e) {
-  const img = sized(e.imageUrl, 640) || youTubeThumb(e.link);
+  const img = sized(e.imageUrl, 640) || entryLinks(e).map(youTubeThumb).find(Boolean) || "";
   return h("article", {
     class: "card", tabindex: "0", role: "button",
     "aria-label": `${e.title}, ${catName(e.categoryId)}`,
     onclick: () => openDetail(e.id),
     onkeydown: (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openDetail(e.id); } },
   },
-    img ? h("img", { class: "pic", src: img, alt: "", loading: "lazy" }) : h("div", { class: "nopic", "aria-hidden": "true" }, (e.title || "?").trim()[0].toUpperCase()),
+    img ? h("img", { class: "pic", src: img, alt: "", loading: "lazy", onerror: (ev) => ev.target.replaceWith(noPic(e)) }) : noPic(e),
     h("div", { class: "body" },
       h("h3", {}, e.title),
       e.place ? h("div", { class: "place" }, e.place) : null,
@@ -321,21 +353,21 @@ function openDetail(id) {
   if (!e) return;
   const dlg = $("#detail");
   const mine = S.user && (S.user.uid === e.authorId || S.isAdmin);
-  const img = sized(e.imageUrl, 1200) || youTubeThumb(e.link);
+  const img = sized(e.imageUrl, 1200) || entryLinks(e).map(youTubeThumb).find(Boolean) || "";
   let confirmDel = false;
   dlg.replaceChildren(
-    img ? h("img", { class: "detail-img", src: img, alt: "" }) : "",
+    img ? h("img", { class: "detail-img", src: img, alt: "", onerror: (ev) => ev.target.remove() }) : "",
     h("div", { class: "sheet-inner" },
       h("div", { class: "tagline" }, catName(e.categoryId)),
       h("h2", {}, e.title),
       e.place ? h("div", { class: "place" }, e.place) : null,
-      e.story ? h("p", { class: "story" }, e.story) : null,
+      e.story ? h("p", { class: "story" }, linkify(e.story)) : null,
       h("div", { class: "from" },
         "from ",
         h("a", { href: "#", onclick: (ev) => { ev.preventDefault(); dlg.close(); S.person = e.authorId; render(); } }, e.authorName),
         ` · ${fmtDate(e.createdAt)}`),
       h("div", { class: "row" },
-        isHttp(e.link) ? h("a", { class: "btn primary", href: e.link, target: "_blank", rel: "noopener" }, linkLabel(e.link)) : null,
+        entryLinks(e).map((url, i) => h("a", { class: i === 0 ? "btn primary" : "btn", href: url, target: "_blank", rel: "noopener" }, linkLabel(url))),
         h("button", { class: "btn", onclick: () => share(e) }, "Copy share link"),
         mine ? h("button", { class: "btn", onclick: () => { dlg.close(); openEditor(e); } }, "Edit") : null,
         mine ? h("button", { class: "btn danger", onclick: async (ev) => {
@@ -379,7 +411,7 @@ function openEditor(e = null) {
   $("#fTitle").value = e?.title || "";
   $("#fPlace").value = e?.place || "";
   $("#fStory").value = e?.story || "";
-  $("#fLink").value = e?.link || "";
+  $("#fLinks").value = entryLinks(e).join("\n");
   $("#fImage").value = e?.imageUrl || "";
   $("#formMsg").textContent = "";
   $("#suggestMsg").textContent = "";
@@ -391,11 +423,22 @@ function openEditor(e = null) {
   $("#editor").showModal();
 }
 
+// Shows the photo under the link field, or explains why it can't.
 function updatePreview() {
   const url = $("#fImage").value.trim();
   const p = $("#fPreview");
+  const msg = $("#formMsg");
+  if (msg.dataset.photo) { msg.textContent = ""; delete msg.dataset.photo; }
   p.hidden = !isHttp(url);
-  if (isHttp(url)) p.src = sized(url, 480);
+  if (!isHttp(url)) return;
+  p.onerror = () => {
+    p.hidden = true;
+    msg.dataset.photo = "1";
+    msg.textContent = /wikipedia\.org\/wiki\//.test(url)
+      ? "That's a Wikipedia page, not the picture. Click the image on Wikipedia until it shows on its own, then right-click it and choose Copy Image Address. The link should start with https://upload.wikimedia.org/"
+      : "That link doesn't load as a picture. Right-click the image itself and choose Copy Image Address.";
+  };
+  p.src = sized(url, 480);
 }
 $("#fImage").addEventListener("input", updatePreview);
 
@@ -419,16 +462,20 @@ async function onFile(ev) {
 $("#entryForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   if (DEMO) { $("#formMsg").textContent = "Demo mode: connect Firebase to post."; return; }
-  const link = $("#fLink").value.trim();
+  const links = $("#fLinks").value.split(/\s+/).map((l) => l.trim()).filter(Boolean);
   const imageUrl = $("#fImage").value.trim();
-  if (link && !isHttp(link)) { $("#formMsg").textContent = "Links need to start with https://"; return; }
+  const badLink = links.find((l) => !isHttp(l) || l.length > 500);
+  if (badLink) { $("#formMsg").textContent = `This link needs to start with https:// : ${badLink.slice(0, 60)}`; return; }
+  if (links.length > MAX_LINKS) { $("#formMsg").textContent = `Up to ${MAX_LINKS} links, please. You have ${links.length}.`; return; }
   if (imageUrl && !isHttp(imageUrl)) { $("#formMsg").textContent = "Photo links need to start with https://"; return; }
   const data = {
     title: $("#fTitle").value.trim(),
     categoryId: $("#fCat").value,
     place: $("#fPlace").value.trim(),
     story: $("#fStory").value.trim(),
-    link, imageUrl,
+    link: links[0] || "",   // first link, kept for older versions of the site
+    links,
+    imageUrl,
   };
   $("#saveBtn").disabled = true;
   $("#formMsg").textContent = "Saving…";
@@ -526,7 +573,7 @@ function loadDemo() {
     { id: "demo1", title: "Morning bakery on the square", categoryId: "restaurants", place: "Dijon, France", story: "Get there before 8 and order whatever just came out of the oven. The pain d'épices is the real thing.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(1) },
     { id: "demo2", title: "Lake loop at sunset", categoryId: "places-to-visit", place: "Waneka Lake, Lafayette CO", story: "An easy walk with the Flatirons going orange behind you. Bring a jacket; it drops ten degrees fast.", link: "", imageUrl: "", authorId: "b", authorName: "Another friend", createdAt: d(3) },
     { id: "demo3", title: "The Count of Monte Cristo", categoryId: "books", place: "Alexandre Dumas", story: "Twelve hundred pages that read like a weekend. Get the Robin Buss translation.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(6) },
-    { id: "demo4", title: "Kind of Blue", categoryId: "music", place: "Miles Davis, 1959", story: "Still the album I put on when people come over and nobody can agree.", link: "", imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(9) },
+    { id: "demo4", title: "Kind of Blue", categoryId: "music", place: "Miles Davis, 1959", story: "Still the album I put on when people come over and nobody can agree. Liner notes: https://en.wikipedia.org/wiki/Kind_of_Blue.", link: "", links: ["https://en.wikipedia.org/wiki/Kind_of_Blue", "https://www.youtube.com/watch?v=ylXk1LBvIqU"], imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(9) },
     { id: "demo5", title: "Honest mechanic", categoryId: "services-and-trades", place: "Boulder County", story: "Told me not to fix something. That's how you know.", link: "", imageUrl: "", authorId: "b", authorName: "Another friend", createdAt: d(14) },
     { id: "demo6", title: "Ninety-second pasta trick", categoryId: "other", place: "Home kitchen", story: "Save a cup of pasta water. Toss everything off the heat. Thank me later.", link: "", imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(20) },
   ];
