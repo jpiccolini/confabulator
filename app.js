@@ -98,6 +98,36 @@ function linkify(text) {
   });
 }
 
+// The story with simple formatting: **bold**, *italic*, and clickable web addresses.
+// Built as page elements, never as HTML, so nothing typed can inject code.
+function richText(text) {
+  const parts = String(text).split(/(\*\*[^*\n]+?\*\*|\*[^*\s][^*\n]*?\*)/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return linkify(part);
+    if (part.startsWith("**")) return h("strong", {}, linkify(part.slice(2, -2)));
+    return h("em", {}, linkify(part.slice(1, -1)));
+  });
+}
+
+// The story as plain text, for card previews and search.
+const plainText = (text) => String(text || "").replace(/\*\*([^*\n]+?)\*\*/g, "$1").replace(/\*([^*\s][^*\n]*?)\*/g, "$1");
+
+// Wraps the selected words in the story box with ** or *.
+function wrapSelection(marker) {
+  const t = $("#fStory");
+  const { selectionStart: a, selectionEnd: b, value: v } = t;
+  const picked = v.slice(a, b);
+  // Already wrapped? Unwrap it.
+  if (v.slice(a - marker.length, a) === marker && v.slice(b, b + marker.length) === marker) {
+    t.value = v.slice(0, a - marker.length) + picked + v.slice(b + marker.length);
+    t.setSelectionRange(a - marker.length, b - marker.length);
+  } else {
+    t.value = v.slice(0, a) + marker + picked + marker + v.slice(b);
+    t.setSelectionRange(a + marker.length, b + marker.length);
+  }
+  t.focus();
+}
+
 function linkLabel(link) {
   try {
     const host = new URL(link).hostname.replace(/^www\./, "");
@@ -298,7 +328,7 @@ function filtered() {
   return S.entries.filter((e) =>
     (S.cat === "all" || e.categoryId === S.cat) &&
     (!S.person || e.authorId === S.person) &&
-    (!q || [e.title, e.place, e.story, e.authorName, catName(e.categoryId)].join(" ").toLowerCase().includes(q))
+    (!q || [e.title, e.place, plainText(e.story), e.authorName, catName(e.categoryId)].join(" ").toLowerCase().includes(q))
   );
 }
 
@@ -319,7 +349,7 @@ function card(e) {
     h("div", { class: "body" },
       h("h3", {}, e.title),
       e.place ? h("div", { class: "place" }, e.place) : null,
-      e.story ? h("p", { class: "excerpt" }, e.story) : null,
+      e.story ? h("p", { class: "excerpt" }, plainText(e.story)) : null,
       h("div", { class: "from" }, `from ${e.authorName} · ${fmtDate(e.createdAt)}`)),
     h("span", { class: "postmark", "aria-hidden": "true" }, catName(e.categoryId)),
   );
@@ -361,7 +391,7 @@ function openDetail(id) {
       h("div", { class: "tagline" }, catName(e.categoryId)),
       h("h2", {}, e.title),
       e.place ? h("div", { class: "place" }, e.place) : null,
-      e.story ? h("p", { class: "story" }, linkify(e.story)) : null,
+      e.story ? h("p", { class: "story" }, richText(e.story)) : null,
       h("div", { class: "from" },
         "from ",
         h("a", { href: "#", onclick: (ev) => { ev.preventDefault(); dlg.close(); S.person = e.authorId; render(); } }, e.authorName),
@@ -494,6 +524,16 @@ $("#entryForm").addEventListener("submit", async (ev) => {
 });
 $("#cancelBtn").addEventListener("click", () => $("#editor").close());
 
+// Bold and italic: the B and I buttons, or Cmd/Ctrl+B and Cmd/Ctrl+I in the story box.
+$("#boldBtn").addEventListener("click", () => wrapSelection("**"));
+$("#italicBtn").addEventListener("click", () => wrapSelection("*"));
+$("#fStory").addEventListener("keydown", (ev) => {
+  if (!(ev.metaKey || ev.ctrlKey)) return;
+  const k = ev.key.toLowerCase();
+  if (k === "b") { ev.preventDefault(); wrapSelection("**"); }
+  if (k === "i") { ev.preventDefault(); wrapSelection("*"); }
+});
+
 $("#suggestBtn").addEventListener("click", async () => {
   const name = $("#fNewCat").value.trim();
   const msg = $("#suggestMsg");
@@ -572,7 +612,7 @@ function loadDemo() {
   S.entries = [
     { id: "demo1", title: "Morning bakery on the square", categoryId: "restaurants", place: "Dijon, France", story: "Get there before 8 and order whatever just came out of the oven. The pain d'épices is the real thing.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(1) },
     { id: "demo2", title: "Lake loop at sunset", categoryId: "places-to-visit", place: "Waneka Lake, Lafayette CO", story: "An easy walk with the Flatirons going orange behind you. Bring a jacket; it drops ten degrees fast.", link: "", imageUrl: "", authorId: "b", authorName: "Another friend", createdAt: d(3) },
-    { id: "demo3", title: "The Count of Monte Cristo", categoryId: "books", place: "Alexandre Dumas", story: "Twelve hundred pages that read like a weekend. Get the Robin Buss translation.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(6) },
+    { id: "demo3", title: "The Count of Monte Cristo", categoryId: "books", place: "Alexandre Dumas", story: "Twelve hundred pages that read like a weekend. Get the *Robin Buss* translation, **not** the old anonymous one.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(6) },
     { id: "demo4", title: "Kind of Blue", categoryId: "music", place: "Miles Davis, 1959", story: "Still the album I put on when people come over and nobody can agree. Liner notes: https://en.wikipedia.org/wiki/Kind_of_Blue.", link: "", links: ["https://en.wikipedia.org/wiki/Kind_of_Blue", "https://www.youtube.com/watch?v=ylXk1LBvIqU"], imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(9) },
     { id: "demo5", title: "Honest mechanic", categoryId: "services-and-trades", place: "Boulder County", story: "Told me not to fix something. That's how you know.", link: "", imageUrl: "", authorId: "b", authorName: "Another friend", createdAt: d(14) },
     { id: "demo6", title: "Ninety-second pasta trick", categoryId: "other", place: "Home kitchen", story: "Save a cup of pasta water. Toss everything off the heat. Thank me later.", link: "", imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(20) },
