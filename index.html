@@ -58,11 +58,17 @@
       <label for="fPlace">Where, or by whom
         <input id="fPlace" maxlength="120" placeholder="Lafayette, Colorado · or an author, band, maker">
       </label>
-      <label for="fStory">Why you love it
+      <div class="storyfield">
+        <label for="fStory">Why you love it</label>
+        <div class="fmt" role="toolbar" aria-label="Text formatting">
+          <button type="button" class="fmtbtn" id="boldBtn" aria-label="Bold" title="Bold (Cmd+B)"><b>B</b></button>
+          <button type="button" class="fmtbtn" id="italicBtn" aria-label="Italic" title="Italic (Cmd+I)"><i>I</i></button>
+          <span class="hint">Select words, then B or I. Shows as **bold** and *italic* while you type.</span>
+        </div>
         <textarea id="fStory" maxlength="4000" rows="5" placeholder="The story you'd tell a friend over dinner."></textarea>
-      </label>
-      <label for="fLink">Link (website, map, YouTube, Spotify)
-        <input id="fLink" type="url" maxlength="500" placeholder="https://">
+      </div>
+      <label for="fLinks">Links, one per line (website, Wikipedia, YouTube, Spotify, map)
+        <textarea id="fLinks" rows="3" placeholder="https://"></textarea>
       </label>
       <div class="imgfield">
         <label for="fImage">Photo link

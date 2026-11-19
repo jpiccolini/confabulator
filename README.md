@@ -129,7 +129,7 @@ then open http://localhost:8000. `localhost` is already an authorized Firebase d
 ## How the data is shaped
 
 ```
-entries/{id}      title, categoryId, place, story, link, imageUrl,
+entries/{id}      title, categoryId, place, story, link, links (up to 6), imageUrl,
                   authorId, authorName, createdAt, updatedAt
 categories/{id}   name, status ("active" | "pending"), suggestedBy, suggestedByName, createdAt
 members/{email}   addedAt, note            ← who may post
