@@ -37,11 +37,12 @@ service cloud.firestore {
       return v is string && v.size() <= max;
     }
     function validEntry(d) {
-      return d.keys().hasOnly(['title', 'categoryId', 'place', 'story', 'link', 'links', 'imageUrl',
+      return d.keys().hasOnly(['title', 'categoryId', 'place', 'story', 'link', 'links', 'imageUrl', 'year',
                                'authorId', 'authorName', 'createdAt', 'updatedAt'])
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && shortText(d.categoryId, 60)
         && shortText(d.place, 120)
+        && (!('year' in d) || (d.year is int && d.year >= 1000 && d.year <= 2100))
         && shortText(d.story, 4000)
         && shortText(d.link, 500)
         && (!('links' in d) || (d.links is list && d.links.size() <= 6))

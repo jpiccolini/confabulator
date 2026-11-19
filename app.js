@@ -110,6 +110,9 @@ function richText(text) {
 }
 
 // The story as plain text, for card previews and search.
+// "Miles Davis · 1959": who or where, plus the release year when there is one.
+const metaLine = (e) => [e.place, e.year].filter(Boolean).join(" · ");
+
 const plainText = (text) => String(text || "").replace(/\*\*([^*\n]+?)\*\*/g, "$1").replace(/\*([^*\s][^*\n]*?)\*/g, "$1");
 
 // Wraps the selected words in the story box with ** or *.
@@ -328,7 +331,7 @@ function filtered() {
   return S.entries.filter((e) =>
     (S.cat === "all" || e.categoryId === S.cat) &&
     (!S.person || e.authorId === S.person) &&
-    (!q || [e.title, e.place, plainText(e.story), e.authorName, catName(e.categoryId)].join(" ").toLowerCase().includes(q))
+    (!q || [e.title, e.place, e.year, plainText(e.story), e.authorName, catName(e.categoryId)].join(" ").toLowerCase().includes(q))
   );
 }
 
@@ -348,7 +351,7 @@ function card(e) {
     img ? h("img", { class: "pic", src: img, alt: "", loading: "lazy", onerror: (ev) => ev.target.replaceWith(noPic(e)) }) : noPic(e),
     h("div", { class: "body" },
       h("h3", {}, e.title),
-      e.place ? h("div", { class: "place" }, e.place) : null,
+      metaLine(e) ? h("div", { class: "place" }, metaLine(e)) : null,
       e.story ? h("p", { class: "excerpt" }, plainText(e.story)) : null,
       h("div", { class: "from" }, `from ${e.authorName} · ${fmtDate(e.createdAt)}`)),
     h("span", { class: "postmark", "aria-hidden": "true" }, catName(e.categoryId)),
@@ -390,7 +393,7 @@ function openDetail(id) {
     h("div", { class: "sheet-inner" },
       h("div", { class: "tagline" }, catName(e.categoryId)),
       h("h2", {}, e.title),
-      e.place ? h("div", { class: "place" }, e.place) : null,
+      metaLine(e) ? h("div", { class: "place" }, metaLine(e)) : null,
       e.story ? h("p", { class: "story" }, richText(e.story)) : null,
       h("div", { class: "from" },
         "from ",
@@ -440,6 +443,7 @@ function openEditor(e = null) {
   fillCategorySelect(e?.categoryId);
   $("#fTitle").value = e?.title || "";
   $("#fPlace").value = e?.place || "";
+  $("#fYear").value = e?.year ?? "";
   $("#fStory").value = e?.story || "";
   $("#fLinks").value = entryLinks(e).join("\n");
   $("#fImage").value = e?.imageUrl || "";
@@ -498,6 +502,12 @@ $("#entryForm").addEventListener("submit", async (ev) => {
   if (badLink) { $("#formMsg").textContent = `This link needs to start with https:// : ${badLink.slice(0, 60)}`; return; }
   if (links.length > MAX_LINKS) { $("#formMsg").textContent = `Up to ${MAX_LINKS} links, please. You have ${links.length}.`; return; }
   if (imageUrl && !isHttp(imageUrl)) { $("#formMsg").textContent = "Photo links need to start with https://"; return; }
+  const yearText = $("#fYear").value.trim();
+  const thisYear = new Date().getFullYear();
+  if (yearText && !(/^\d{4}$/.test(yearText) && +yearText >= 1000 && +yearText <= thisYear + 5)) {
+    $("#formMsg").textContent = `Year should be four digits, like 1966, and no later than ${thisYear + 5}.`;
+    return;
+  }
   const data = {
     title: $("#fTitle").value.trim(),
     categoryId: $("#fCat").value,
@@ -507,6 +517,7 @@ $("#entryForm").addEventListener("submit", async (ev) => {
     links,
     imageUrl,
   };
+  if (yearText) data.year = Number(yearText);   // left out entirely when blank
   $("#saveBtn").disabled = true;
   $("#formMsg").textContent = "Saving…";
   try {
@@ -612,8 +623,8 @@ function loadDemo() {
   S.entries = [
     { id: "demo1", title: "Morning bakery on the square", categoryId: "restaurants", place: "Dijon, France", story: "Get there before 8 and order whatever just came out of the oven. The pain d'épices is the real thing.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(1) },
     { id: "demo2", title: "Lake loop at sunset", categoryId: "places-to-visit", place: "Waneka Lake, Lafayette CO", story: "An easy walk with the Flatirons going orange behind you. Bring a jacket; it drops ten degrees fast.", link: "", imageUrl: "", authorId: "b", authorName: "Another friend", createdAt: d(3) },
-    { id: "demo3", title: "The Count of Monte Cristo", categoryId: "books", place: "Alexandre Dumas", story: "Twelve hundred pages that read like a weekend. Get the *Robin Buss* translation, **not** the old anonymous one.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(6) },
-    { id: "demo4", title: "Kind of Blue", categoryId: "music", place: "Miles Davis, 1959", story: "Still the album I put on when people come over and nobody can agree. Liner notes: https://en.wikipedia.org/wiki/Kind_of_Blue.", link: "", links: ["https://en.wikipedia.org/wiki/Kind_of_Blue", "https://www.youtube.com/watch?v=ylXk1LBvIqU"], imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(9) },
+    { id: "demo3", title: "The Count of Monte Cristo", categoryId: "books", place: "Alexandre Dumas", year: 1844, story: "Twelve hundred pages that read like a weekend. Get the *Robin Buss* translation, **not** the old anonymous one.", link: "", imageUrl: "", authorId: "a", authorName: "Sample friend", createdAt: d(6) },
+    { id: "demo4", title: "Kind of Blue", categoryId: "music", place: "Miles Davis", year: 1959, story: "Still the album I put on when people come over and nobody can agree. Liner notes: https://en.wikipedia.org/wiki/Kind_of_Blue.", link: "", links: ["https://en.wikipedia.org/wiki/Kind_of_Blue", "https://www.youtube.com/watch?v=ylXk1LBvIqU"], imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(9) },
     { id: "demo5", title: "Honest mechanic", categoryId: "services-and-trades", place: "Boulder County", story: "Told me not to fix something. That's how you know.", link: "", imageUrl: "", authorId: "b", authorName: "Another friend", createdAt: d(14) },
     { id: "demo6", title: "Ninety-second pasta trick", categoryId: "other", place: "Home kitchen", story: "Save a cup of pasta water. Toss everything off the heat. Thank me later.", link: "", imageUrl: "", authorId: "c", authorName: "Third friend", createdAt: d(20) },
   ];

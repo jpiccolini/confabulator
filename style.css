@@ -159,6 +159,8 @@ dialog::backdrop { background: rgba(20, 23, 28, .55); }
 .form textarea { resize: vertical; }
 .imgfield { display: grid; gap: 8px; }
 .storyfield { display: grid; gap: 5px; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem; gap: 12px; }
+@media (max-width: 480px) { .pair { grid-template-columns: minmax(0, 1fr); } }
 .fmt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .fmtbtn {
   width: 32px; height: 30px; cursor: pointer; font: 600 .95rem var(--display); color: var(--navy);

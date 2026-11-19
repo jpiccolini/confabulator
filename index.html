@@ -55,9 +55,14 @@
       <label for="fCat">Category
         <select id="fCat" required></select>
       </label>
-      <label for="fPlace">Where, or by whom
-        <input id="fPlace" maxlength="120" placeholder="Lafayette, Colorado · or an author, band, maker">
-      </label>
+      <div class="pair">
+        <label for="fPlace">Where, or by whom
+          <input id="fPlace" maxlength="120" placeholder="Lafayette, Colorado · or an author, band, maker">
+        </label>
+        <label for="fYear">Year
+          <input id="fYear" type="text" inputmode="numeric" maxlength="4" placeholder="Optional">
+        </label>
+      </div>
       <div class="storyfield">
         <label for="fStory">Why you love it</label>
         <div class="fmt" role="toolbar" aria-label="Text formatting">
